@@ -62,3 +62,160 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: AiImageBrowser-${{github.ref_name}}-linux.zip
+
+  build-and-release-windows:
+    runs-on: windows-latest
+
+    steps:
+      # - uses: actions/checkout@v2
+      - name: Check out my other private repo, secret's value expires Dec 1, 2022
+        uses: actions/checkout@v2
+        with:
+          repository: abulka/ai-images-manager
+          token: ${{ secrets.ANDY_ALL_ACCESS }}
+      - uses: subosito/flutter-action@v1
+        with:
+          # channel: 'stable'
+          # flutter-version: '3.3.6'
+          channel: 'beta'
+          flutter-version: '3.4.0-34.1.pre'
+      - name: Install project dependencies
+        run: flutter pub get
+      - name: Generate intermediates
+        run: flutter pub run build_runner build --delete-conflicting-outputs
+      - name: Enable windows build
+        run: flutter config --enable-windows-desktop
+      - name: Build artifacts
+        run: flutter build windows --release
+      - name: View resulting directory structure
+        shell: bash
+        run: |
+          ls -l
+          ls -l build/windows/runner/Release
+      - name: Run Innosetup
+        # creates an exe installer in the Output directory
+        if: ${{ runner.os == 'Windows' }}
+        run: |
+          # cd build/windows/runner/Release
+          echo hi
+          dir
+          # Use /D to define an inno hash variable - see https://stackoverflow.com/questions/60888905/how-can-i-pass-command-line-parameters-with-a-value-to-the-inno-setup-compiler 
+          iscc inno-ai-image-browser.iss /DMyAppVersion=${{github.ref_name}}
+          dir Output
+      # 
+      # - name: Archive Release
+      #   # No need to create a zip here because we are now using inno setup to create an exe installer
+      #   # thus we can just 'release' the exe installer file.
+      #   uses: thedoctor0/zip-release@master
+      #   with:
+      #     type: 'zip'
+      #     filename: AiImageBrowser-${{github.ref_name}}-windows.zip
+      #     # directory: build/windows/runner/Release
+      #     directory: Output
+      # - name: View resulting directory structure after creating the zip
+      #   shell: bash
+      #   run: |
+      #     ls -l
+      #     ls -l build/windows/runner/Release
+      #     ls -l Output
+      # 
+      # - name: Just for fun, save generated setup executable file as a build artifact
+      #   # this step is not necessary, but it's nice to have the setup file as a build artifact
+      #   uses: actions/upload-artifact@v2
+      #   with:
+      #     # The act of later downloading the artifact will auto zip up all the artifact files 
+      #     # incl. adding the .zip extension to the resulting download file
+      #     name: AiImageBrowser-${{github.ref_name}}-windows-artifact  # to (don't add .zip to this name or you will get .zip.zip in the resulting download)
+      #     path: Output/  # from          
+      - name: Windows Release
+        # There is no weird zip upload download naming behaviour when releasing, we just specify the file to release, .exe is ok
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # See inno setup file var 'OutputBaseFilename' for the name of the generated exe installer file used here
+          files: Output/ai-image-browser-${{github.ref_name}}-windows-setup-x86.exe
+
+  build-and-release-macos:
+    runs-on: macos-latest
+
+    steps:
+      # - uses: actions/checkout@v2
+      - name: Check out my other private repo, secret's value expires Dec 1, 2022
+        uses: actions/checkout@v2
+        with:
+          repository: abulka/ai-images-manager
+          token: ${{ secrets.ANDY_ALL_ACCESS }}
+      - uses: subosito/flutter-action@v1
+        with:
+          channel: 'stable'
+          flutter-version: '3.3.6'
+      - name: Install project dependencies
+        run: flutter pub get
+      - name: Generate intermediates
+        run: flutter pub run build_runner build --delete-conflicting-outputs
+      - name: Enable macOS build
+        run: flutter config --enable-macos-desktop
+      - name: Build artifacts
+        run: flutter build macos --release
+      - name: View resulting directory structure
+        shell: bash
+        run: |
+          ls -l
+          ls -l build/macos/Build/Products/Release
+      - name: Move to subdir and add readme and permission scripts
+        shell: bash
+        run: |
+          DEST=build/macos/Build/Products/Release/AiImageBrowser/
+          mkdir $DEST
+          mv build/macos/Build/Products/Release/ai_images_manager.app $DEST
+          cp deploy_extras/macos/IMPORTANT-README-BEFORE-RUNNING.txt $DEST
+          cp deploy_extras/macos/fix-permissions.command $DEST
+
+          # Don't bother deploying the automator script because that raises more permission problems itself!
+          # unzip deploy_extras/macos/fix-permissions.zip -d $DEST
+          ls -l
+          ls -l build/macos/Build/Products/Release
+          ls -l $DEST
+      - name: Archive Release
+        uses: thedoctor0/zip-release@master
+        # https://github.com/TheDoctor0/zip-release
+        # The generated archive will be placed as specified by directory, path and filename.
+        # viz.
+        # directory: The working directory where the zip or tar actually runs. Default .
+        # path: The path to the files or directory that should be archived, relative to directory. Default .
+        # filename: The name of the archive. Default realease.zip
+        # exclusions: A list of files or directories to exclude from the archive. Default []. 
+        #             ZIP requires you to specify wildcards or full filenames e.g.
+        #             exclusions: '*.git* /*node_modules/* .editorconfig'
+        with:
+          type: 'zip'
+          filename: AiImageBrowser-${{github.ref_name}}-macos.zip
+          directory: build/macos/Build/Products/Release/
+          # exclusions: '*.git* /*node_modules/* .editorconfig'
+          # path: ai_images_manager.app
+          path: AiImageBrowser/
+      - name: View resulting directory structure after archiving
+        shell: bash
+        run: |
+          ls -l
+          ls -l build/macos/Build/Products/Release
+      - name: macOS Release
+        uses: softprops/action-gh-release@v1
+        # When the action is triggered by a push on tags, github.ref is something like refs/tags/xxx; 
+        # when action is triggered by a push on branches, github.ref is refs/heads/main
+        # so 
+        # git tag -l
+        # git tag -a beta-01
+        # git push --follow-tags
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: build/macos/Build/Products/Release/AiImageBrowser-${{github.ref_name}}-macos.zip
+
+        # After you download and unzip the release, you need to
+        # 1. Open the terminal
+        # 2. xattr -dr com.apple.quarantine ~/Downloads/AiImageBrowser-beta-01-macos/ai_images_manager.app
+        # or run the fix-permissions.command script
