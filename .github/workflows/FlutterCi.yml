@@ -1,0 +1,65 @@
+name: Flutter CI
+
+on: push
+
+jobs:
+  build-and-release-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      # - uses: actions/checkout@v2
+      - name: Check out my other private repo
+        uses: actions/checkout@v2
+        with:
+          repository: abulka/ai-images-manager
+          token: ${{ secrets.SECRET_ACCESS_REPO_IMAGES_MGR }}
+          path: /      
+      # - uses: subosito/flutter-action@v1
+      #   with:
+      #     channel: 'stable'
+      #     flutter-version: '3.3.6'
+      # - name: Update Linux - new step for 'act' local testing
+      #   run: sudo apt-get -yq update && sudo apt-get -yq install
+      # - name: Install dependencies
+      #   run: sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+      # - name: Install project dependencies
+      #   run: flutter pub get
+      # - name: Generate intermediates
+      #   run: flutter pub run build_runner build --delete-conflicting-outputs
+      # - name: Enable linux build
+      #   run: flutter config --enable-linux-desktop
+      # - name: Build artifacts
+      #   run: flutter build linux --release
+      - name: View resulting directory structure
+        shell: bash
+        run: |
+          ls -l
+          ls -l build/linux/x64/release/bundle
+      # - name: Create wrapper dir
+      #   shell: bash
+      #   # will also copy icon into location (not that it visually makes any difference - see https://stackoverflow.com/questions/64558578/how-to-change-desktop-windows-application-icon-for-flutter/73134323#73134323)
+      #   run: |
+      #     OUT=AiImageBrowser
+      #     ICONDIR=$OUT/images-icons/out/icons/win
+      #     FROM_ICONDIR=images-icons/out/icons/win
+      #     FROM_RELEASE=build/linux/x64/release/bundle
+      #     rm -rf $OUT
+      #     mkdir -p $OUT
+      #     mkdir -p $ICONDIR
+      #     mv $FROM_RELEASE/* $OUT
+      #     cp $FROM_ICONDIR/icon.ico $ICONDIR
+      #     ls -l $OUT
+      # - name: Zip - Archive Release using built in zip (not the vimtor/action-zip@v1 nor the thedoctor0/zip-release@master)
+      #   shell: bash
+      #   run: |
+      #     FROM_WRAPPINGDIR=AiImageBrowser
+      #     TO=AiImageBrowser-${{github.ref_name}}-linux.zip
+      #     zip -r $TO $FROM_WRAPPINGDIR
+      #     ls -l
+      # - name: Linux Release
+      #   uses: softprops/action-gh-release@v1
+      #   if: startsWith(github.ref, 'refs/tags/')
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     files: AiImageBrowser-${{github.ref_name}}-linux.zip
