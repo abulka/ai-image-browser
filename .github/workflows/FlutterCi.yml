@@ -13,7 +13,7 @@ jobs:
         with:
           repository: abulka/ai-images-manager
           token: ${{ secrets.SECRET_ACCESS_REPO_IMAGES_MGR }}
-          path: /      
+          # path: /
       # - uses: subosito/flutter-action@v1
       #   with:
       #     channel: 'stable'
